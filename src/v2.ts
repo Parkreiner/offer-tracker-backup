@@ -5,31 +5,18 @@
  * the entire contents of the spreadsheet, or that someone accidentally breaks
  * things.
  *
- *
  * @todo
- *   - Test out the new functionality for tracking sheet changes, and get it
- *     hooked up
- *   - Get the project set up in CLASP and TypeScript; actually put it in a repo
- *   - Set the code up so that it tracks and lists all changes between the
- *     current sheet and the last back-up. List more than the very first thing
- *     that was detected as a change. (requires changing detectSheetChanges_ to
- *     track all the new info – maybe call it compileSheetChanges_, and also the
- *     email function to output the array items as a proper HTML list)
+ *   - Test the functionality for the newer functions.
+ *   - Split up the functionality across more files.
+ *   - Update the email logic to have better formatting
  */
 
+import { DriveFolder, getValues, Sheet, Spreadsheet } from "./gasTypeHelpers";
 import {
   BACKUP_FOLDER_ID,
   TRACKER_SPREADSHEET_ID,
   PERSONAL_EMAIL,
 } from "./constants";
-
-import {
-  CellValue,
-  DriveFolder,
-  getValues,
-  Sheet,
-  Spreadsheet,
-} from "./gasTypeHelpers";
 
 /**
  * Compiles basic information about what has changed since the last backup.
@@ -49,7 +36,7 @@ type BackupReport = {
   backupAlreadyExists: boolean;
 
   /** Compiles all changes between the source sheet and the last backup */
-  changes: "No changes detected" | string[];
+  changes: string[];
 };
 
 /**
@@ -75,35 +62,32 @@ function backupDailyContents(forceBackup = false): void {
       TRACKER_SPREADSHEET_ID
     );
 
-    const newName = `tracker_${getFormattedDateStamp_()}`;
-    const [backupNeeded, message] = detectSheetChanges_(
+    const baseName = `tracker_${getFormattedDateStamp_()}`;
+    const backupReport = compileBackupReport_(
       sourceSpreadsheet,
       backupsFolder,
-      newName
+      baseName
     );
 
-    if (!forceBackup && !backupNeeded) {
-      console.log(`${message} Exiting.`);
+    logBackupInfo_(backupReport, forceBackup);
+
+    const shouldProceed = forceBackup || !backupReport.backupAlreadyExists;
+    if (!shouldProceed) {
+      console.log("Not proceeding with back up. Exiting script.");
       return;
     }
 
-    console.log("Backup in progress.");
-    console.log(message);
-    console.log(`Force update value: ${forceBackup}`);
-
-    const newSpreadsheet = copySpreadsheetContents_(
+    copySpreadsheet_(
       sourceSpreadsheet,
-      SpreadsheetApp.create(newName)
+      backupsFolder,
+      SpreadsheetApp.create(getNextPossibleName_(backupsFolder, baseName))
     );
 
-    const newSpreadsheetRef = DriveApp.getFileById(newSpreadsheet.getId());
-    newSpreadsheetRef.moveTo(backupsFolder);
-
-    console.log("Backup complete");
+    console.log("Backup complete.");
     sendEmail_(
       PERSONAL_EMAIL,
       "[Offer letter tracker] Backup complete",
-      message
+      backupReport.changes.join("\n")
     );
   } catch (err: unknown) {
     const logValue = err instanceof Error ? err.stack : err;
@@ -117,6 +101,34 @@ function backupDailyContents(forceBackup = false): void {
       emailBody
     );
   }
+}
+
+function logBackupInfo_(report: BackupReport, forceBackup: boolean): void {
+  const toWord = (b: boolean) => (b ? "Yes" : "No");
+  const changeContent =
+    report.changes.length > 0
+      ? `Changes detected:\n${report.changes.join("\n")}`
+      : "Changes detected: None.";
+
+  console.log("Backup info:");
+  console.log(`Backup needed? ${toWord(report.backupNeeded)}.`);
+  console.log(`Backup already exists? ${toWord(report.backupAlreadyExists)}.`);
+  console.log(`Backup forced? ${toWord(forceBackup)}.`);
+  console.log(changeContent);
+}
+
+function getNextPossibleName_(folder: DriveFolder, baseName: string): string {
+  let index = 0;
+  let fileIterator = folder.getFilesByName(baseName);
+  let currentName: string;
+
+  do {
+    currentName = index === 0 ? baseName : `${baseName} (${index})`;
+    fileIterator = folder.getFilesByName(currentName);
+    index++;
+  } while (fileIterator.hasNext());
+
+  return currentName;
 }
 
 /**
@@ -176,14 +188,14 @@ function getIdNewestFile_(folder: DriveFolder): string {
 }
 
 /**
- * Goes through the source spreadsheet and the last backed-up spreadsheet,
- * and returns an object reporting all their changes.
+ * Goes through the source spreadsheet and the last backed-up spreadsheet, and
+ * returns an object reporting all their changes.
  * @private
  */
-function compileSheetChanges_(
+function compileBackupReport_(
   sourceSpreadsheet: Spreadsheet,
   backupsFolder: DriveFolder,
-  newSpreadsheetName: string
+  spreadsheetNameToFind: string
 ): BackupReport {
   const detectedChanges: string[] = [];
   const sheetPairs = pairUpSheets_(
@@ -255,12 +267,11 @@ function compileSheetChanges_(
     }
   }
 
-  const changesMade = detectedChanges.length > 0;
   return {
-    backupNeeded: changesMade,
-    changes: changesMade ? detectedChanges : "No changes detected",
+    backupNeeded: detectedChanges.length > 0,
+    changes: detectedChanges,
     backupAlreadyExists: backupsFolder
-      .getFilesByName(newSpreadsheetName)
+      .getFilesByName(spreadsheetNameToFind)
       .hasNext(),
   };
 }
@@ -305,91 +316,6 @@ function pairUpSheets_(
 }
 
 /**
- * Determines whether a backup is needed, by comparing the main offer tracker
- * spreadsheet against the most recent backup in the backups folder.
- * @private
- */
-function detectSheetChanges_(
-  sourceSpreadsheet: Spreadsheet,
-  backupsFolder: DriveFolder,
-  newSsName: string
-): [backupNeeded: boolean, message: string] {
-  const fileIteratorByName = backupsFolder.getFilesByName(newSsName);
-  if (fileIteratorByName.hasNext()) {
-    return [false, "Backup already exists."];
-  }
-
-  const sourceSheets = sourceSpreadsheet.getSheets();
-  const newestSheets = SpreadsheetApp.openById(
-    getIdNewestFile_(backupsFolder)
-  ).getSheets();
-  if (sourceSheets.length !== newestSheets.length) {
-    return [true, "Source spreadsheet sheet count changed."];
-  }
-
-  sourceSheets.sort(orderBySheetName_);
-  newestSheets.sort(orderBySheetName_);
-
-  // Three loops nested within each other. It's messy, but still technically
-  // O(n), since each cell will only be iterated over once
-  for (const [i, sourceSheet] of sourceSheets.entries()) {
-    // Previous check ensures that sheet arrays have the same length
-    const newSheet = newestSheets[i] as Sheet;
-
-    const sourceSheetName = sourceSheet.getName();
-    const sourceValues = getValues(sourceSheet.getDataRange());
-    const newestValues = getValues(newSheet.getDataRange());
-
-    if (sourceValues.length !== newestValues.length) {
-      return [
-        true,
-        `Source spreadsheet row count changed for sheet ${sourceSheetName}.`,
-      ];
-    }
-
-    for (const [j, sourceRow] of sourceValues.entries()) {
-      const newRow = newestValues[j] as CellValue[];
-
-      if (sourceRow.length !== newRow.length) {
-        return [
-          true,
-          `Source spreadsheet column count changed for sheet ${sourceSheetName}.`,
-        ];
-      }
-
-      for (const [k, cellValue] of sourceRow.entries()) {
-        if (cellValue !== newRow[k]) {
-          const indexOffset = j + 1;
-          return [
-            true,
-            `Source spreadsheet cell values changed for sheet ${sourceSheetName} on row ${indexOffset}.`,
-          ];
-        }
-      }
-    }
-  }
-
-  return [false, "No changes detected."];
-}
-
-/**
- * Determines an orderinal value for two sheets, based on their names.
- * @private
- */
-function orderBySheetName_(s1: Sheet, s2: Sheet): -1 | 0 | 1 {
-  const sheet1Name = s1.getName();
-  const sheet2Name = s2.getName();
-
-  if (sheet1Name < sheet2Name) {
-    return -1;
-  } else if (sheet1Name > sheet2Name) {
-    return 1;
-  }
-
-  return 0;
-}
-
-/**
  * Encapsulates the steps needed to make a formatted date stamp. Timestamp
  * is formatted to work with > comparisons right out of the box.
  * @private
@@ -402,31 +328,25 @@ function getFormattedDateStamp_(): string {
   return `${date.getFullYear()}-${month}-${day}`;
 }
 
-/**
- * Copies all the contents of source spreadsheet into target spreadsheet.
- *
- * Copying manually instead of using the built-in spreadsheet.copy to avoid
- * copying Google Apps Script script files over and over.
- * @private
- */
-function copySpreadsheetContents_<SS extends Spreadsheet>(
+function copySpreadsheet_(
   sourceSpreadsheet: Spreadsheet,
-  targetSpreadsheet: SS
-): SS {
+  destinationFolder: DriveFolder,
+  targetSpreadsheet: Spreadsheet
+): void {
   const oldSheets = targetSpreadsheet.getSheets();
   const copyPrefixMatcher = /^Copy.*?of */i;
 
   for (const sourceSheet of sourceSpreadsheet.getSheets()) {
     const newSheet = sourceSheet.copyTo(targetSpreadsheet);
-    const cleanedName = newSheet.getName().replace(copyPrefixMatcher, "");
-    newSheet.setName(cleanedName);
+    newSheet.setName(newSheet.getName().replace(copyPrefixMatcher, ""));
   }
 
   for (const sheet of oldSheets) {
     targetSpreadsheet.deleteSheet(sheet);
   }
 
-  return targetSpreadsheet;
+  const newSpreadsheetRef = DriveApp.getFileById(targetSpreadsheet.getId());
+  newSpreadsheetRef.moveTo(destinationFolder);
 }
 
 /**
