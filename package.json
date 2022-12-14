@@ -1,0 +1,24 @@
+{
+  "name": "offer-tracker-backup",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Parkreiner/offer-tracker-backup.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Parkreiner/offer-tracker-backup/issues"
+  },
+  "homepage": "https://github.com/Parkreiner/offer-tracker-backup#readme",
+  "devDependencies": {
+    "@types/google-apps-script": "^1.0.56",
+    "typescript": "^4.9.4"
+  }
+}
