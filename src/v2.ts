@@ -31,11 +31,25 @@ import {
   Spreadsheet,
 } from "./gasTypeHelpers";
 
-/** Compiles basic information about what has changed since the last backup */
+/**
+ * Compiles basic information about what has changed since the last backup.
+ *
+ * There is no relation between backupNeeded and backupAlreadyExists. A backup
+ * can exist for the day, but already be out of date if later changes are made
+ * in the same day.
+ */
 type BackupReport = {
+  /**
+   * Indicates whether there are differences between the source sheet and the
+   * most recent backup.
+   */
   backupNeeded: boolean;
+
+  /** Indicates whether a backup has already been created for the day. */
   backupAlreadyExists: boolean;
-  changes: string[];
+
+  /** Compiles all changes between the source sheet and the last backup */
+  changes: "No changes detected" | string[];
 };
 
 /**
@@ -162,177 +176,132 @@ function getIdNewestFile_(folder: DriveFolder): string {
 }
 
 /**
- * Determines whether a backup is needed, by comparing the main offer tracker
- * spreadsheet against the most recent backup in the backups folder.
+ * Goes through the source spreadsheet and the last backed-up spreadsheet,
+ * and returns an object reporting all their changes.
  * @private
  */
-function INCOMPLETE_compileSheetChanges_(
+function compileSheetChanges_(
   sourceSpreadsheet: Spreadsheet,
   backupsFolder: DriveFolder,
   newSpreadsheetName: string
 ): BackupReport {
-  let backupNeeded = false;
-  let backupAlreadyExists = false;
-  const changes = [];
+  const detectedChanges: string[] = [];
+  const sheetPairs = pairUpSheets_(
+    sourceSpreadsheet.getSheets(),
+    SpreadsheetApp.openById(getIdNewestFile_(backupsFolder)).getSheets()
+  );
 
-  const fileIteratorByName = backupsFolder.getFilesByName(newSpreadsheetName);
-  if (fileIteratorByName.hasNext()) {
-    backupAlreadyExists = true;
-  }
-
-  let sourceSheets: (Sheet | null)[];
-  let newestSheets: (Sheet | null)[];
-  {
-    const tempSource = sourceSpreadsheet.getSheets().sort(orderBySheetName_);
-    const tempNewest = SpreadsheetApp.openById(getIdNewestFile_(backupsFolder))
-      .getSheets()
-      .sort(orderBySheetName_);
-
-    [sourceSheets, newestSheets] = pairUpSheets_(tempSource, tempNewest);
-  }
-
-  if (sourceSheets.length !== newestSheets.length) {
-    backupNeeded = true;
-    changes.push("Source spreadsheet sheet count changed.");
-  }
-
-  // Iterate over each pair of sheets. The entire loop is a little messy, but it
-  // should technically be O(n) still, since each cell is only iterated over
-  // once
-  for (let i = 0; i < sourceSheets.length; i++) {
-    // If one sheet is null, the other should be guaranteed to be defined
-    const sourceSheet = sourceSheets[i];
-    const newestSheet = newestSheets[i];
-
+  for (const [sourceSheet, lastBackupSheet] of sheetPairs) {
+    // Rule out that a sheet is missing from a given pair
     if (!sourceSheet) {
-      backupNeeded = true;
-      const newName = newestSheet?.getName() ?? "N/A";
-      changes.push(`Sheet ${newName} deleted from source spreadsheet`);
-      continue;
-    }
-
-    if (!newestSheet) {
-      backupNeeded = true;
-      changes.push(
-        `Sheet ${sourceSheet.getName()} deleted from source spreadsheet`
+      detectedChanges.push(
+        `Sheet ${lastBackupSheet.getName()} deleted from source spreadsheet`
       );
       continue;
     }
 
-    const sourceSheetName = sourceSheet.getName();
-    const sourceValues = sourceSheet.getDataRange().getValues();
-    const newestValues = newestSheet.getDataRange().getValues();
+    if (!lastBackupSheet) {
+      detectedChanges.push(
+        `Sheet ${sourceSheet.getName()} added since last backup`
+      );
+      continue;
+    }
 
-    // Detect change in row count
-    if (sourceValues.length !== newestValues.length) {
-      const diff = sourceValues.length - newestValues.length;
-      const print = diff > 0 ? `+${diff}` : String(diff);
+    // Gather values now that both sheets are definitely defined
+    const sourceName = sourceSheet.getName();
+    const sourceValues = getValues(sourceSheet.getDataRange());
+    const backupValues = getValues(lastBackupSheet.getDataRange());
 
-      backupNeeded = true;
-      changes.push(
-        `Row count for Source spreadsheet ${sourceSheetName}: ${print}.`
+    // Handle changes in row count
+    const rowDiff = sourceValues.length - backupValues.length;
+    if (rowDiff !== 0) {
+      detectedChanges.push(
+        rowDiff > 0
+          ? `${rowDiff} rows added to sheet ${sourceName}`
+          : `${rowDiff * -1} rows deleted from sheet ${sourceName}`
       );
     }
 
-    // Iterate over each row
-    for (let j = 0; j < sourceValues.length; j++) {
-      const sourceRow = sourceValues[j];
-      const newestRow = newestValues[j];
+    // Start iterating through individual cell values
+    for (const [i, sourceRow] of sourceValues.entries()) {
+      const backupRow = backupValues[i];
+      if (!backupRow) break;
 
-      // Detect change in column count
-      if (sourceRow.length !== newestRow.length) {
-        const diff = sourceRow.length - newestRow.length;
-        const print = diff > 0 ? `+${diff}` : String(diff);
-
-        backupNeeded = true;
-        changes.push(
-          `Column count for Source spreadsheet ${sourceSheetName}: ${print}.`
+      // Handle differences in column count
+      const colDiff = sourceRow.length - backupRow.length;
+      if (colDiff !== 0) {
+        detectedChanges.push(
+          colDiff > 0
+            ? `${colDiff} columns added to sheet ${sourceName}`
+            : `${colDiff * -1} columns deleted from sheet ${sourceName}`
         );
       }
 
-      // Iterate over each cell in the row
-      for (let k = 0; k < sourceRow.length; k++) {
-        // Detect value change
-        if (sourceRow[k] !== newestRow[k]) {
-          backupNeeded = true;
-          changes.push(
-            `Cell values changed for Source spreadsheet ${sourceSheetName}: row ${
-              j + 1
-            }.`
-          );
+      for (const [j, sourceValue] of sourceRow.entries()) {
+        const backupValue = backupRow[j];
+        if (backupValue === undefined) break;
 
-          // Moving to next iteration of loop to avoid a bunch of changes being
-          // registered on the same row (common for new offers being added)
-          continue;
+        const valuesDifferent =
+          sourceValue instanceof Date && backupValue instanceof Date
+            ? sourceValue.getTime() === backupValue.getTime()
+            : sourceValue === backupValue;
+
+        if (valuesDifferent) {
+          detectedChanges.push(
+            `Values changes for row ${j} in sheet ${sourceName}`
+          );
         }
       }
     }
   }
 
-  return { backupNeeded, backupAlreadyExists, changes };
+  const changesMade = detectedChanges.length > 0;
+  return {
+    backupNeeded: changesMade,
+    changes: changesMade ? detectedChanges : "No changes detected",
+    backupAlreadyExists: backupsFolder
+      .getFilesByName(newSpreadsheetName)
+      .hasNext(),
+  };
 }
 
 /**
  * Pairs up all sheets in the source spreadsheet with ones in the last backed-
- * up spreadsheet.
+ * up spreadsheet, by turning each pair into a two-element tuple.
  *
- * If a sheet exists in one, but not the other, a value of null is inserted for
- * the other. All sheet arrays are assumed to be sorted alphabetically
- * beforehand.
- *
- * @todo Rewrite this logic. It seems messy and not that type-safe.
+ * At least one element in each tuple is guaranteed to be defined.
+ * @private
  */
-function pairUpSheets_<S1 extends Sheet, S2 extends Sheet>(
-  sourceSheets: S1[],
-  lastBackupSheets: S2[]
-): [sourceSheet: (S1 | null)[], backupSheets: (S2 | null)[]] {
-  const organizedSources = [];
-  const organizedBackups = [];
+function pairUpSheets_(
+  sourceSheets: Sheet[],
+  lastBackupSheets: Sheet[]
+): ([Sheet, Sheet] | [Sheet, null] | [null, Sheet])[] {
+  // The whole function isn't the most efficient, but should be easy to maintain
+  const toMapEntry = (s: Sheet) => [s.getName(), s] as const;
+  const sourceMap = new Map(sourceSheets.map(toMapEntry));
+  const backupMap = new Map(lastBackupSheets.map(toMapEntry));
 
-  let sourceIndex = 0;
-  let backupIndex = 0;
+  const uniqueSheetNames = [
+    ...new Set([
+      ...sourceSheets.map((s) => s.getName()),
+      ...lastBackupSheets.map((s) => s.getName()),
+    ]),
+  ].sort();
 
-  while (
-    sourceIndex < sourceSheets.length &&
-    backupIndex < lastBackupSheets.length
-  ) {
-    const sourceSheet = sourceSheets[sourceIndex];
-    if (!sourceSheet) {
-      throw new Error(`Unable to pull sourceSheet for index ${sourceIndex}`);
+  return uniqueSheetNames.map((name) => {
+    const inSource = sourceMap.has(name);
+    const inBackup = backupMap.has(name);
+
+    if (inSource) {
+      if (inBackup) {
+        return [sourceMap.get(name) as Sheet, backupMap.get(name) as Sheet];
+      }
+
+      return [sourceMap.get(name) as Sheet, null];
     }
 
-    const backupSheet = lastBackupSheets[backupIndex];
-    if (!backupSheet) {
-      throw new Error(`Unable to pull backupSheet for index ${backupIndex}`);
-    }
-
-    const sourceName = sourceSheet.getName();
-    const backupName = backupSheet.getName();
-
-    // Source spreadsheet has a sheet the backups doesn't (added)
-    if (sourceName < backupName) {
-      organizedSources.push(sourceSheet);
-      organizedBackups.push(null);
-      sourceIndex++;
-      continue;
-    }
-
-    // Backup spreadsheet has a sheet the backups doesn't (deleted)
-    if (backupName < sourceName) {
-      organizedSources.push(null);
-      organizedBackups.push(backupSheet);
-      backupIndex++;
-      continue;
-    }
-
-    // Base case - names are the same
-    organizedSources.push(sourceSheet);
-    organizedBackups.push(backupSheet);
-    sourceIndex++;
-    backupIndex++;
-  }
-
-  return [organizedSources, organizedBackups];
+    return [null, backupMap.get(name) as Sheet];
+  });
 }
 
 /**
