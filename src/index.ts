@@ -26,6 +26,7 @@ import {
  * while getting things fixed. Should only ever be run directly from the Apps
  * Scripts console.
  */
+// @ts-expect-error
 function forceManualBackup(): void {
   backupDailyContents(true);
 }
