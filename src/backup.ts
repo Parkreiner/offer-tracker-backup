@@ -9,7 +9,10 @@ import {
   Sheet,
   Spreadsheet,
   getIdNewestFile_,
+  convertToColumnLetters_,
 } from "./gasHelpers.js";
+
+type DriveResource = { name: string; id: string };
 
 /**
  * Compiles basic information about what has changed since the last backup.
@@ -19,6 +22,10 @@ import {
  * in the same day.
  */
 type BackupReport = {
+  folder: DriveResource;
+  sourceSpreadsheet: DriveResource;
+  comparisonSpreadsheet: DriveResource;
+
   /**
    * Indicates whether there are differences between the source sheet and the
    * most recent backup.
@@ -39,16 +46,25 @@ export function logBackupInfo_(
   report: BackupReport,
   forceBackup: boolean
 ): void {
+  console.log("Backup info:");
+  console.log(`Backups folder: ${report.folder.name} (${report.folder.id})`);
+  console.log(
+    `Source spreadsheet: ${report.sourceSpreadsheet.name} (${report.sourceSpreadsheet.id})`
+  );
+  console.log(
+    `Comparison spreadsheet: ${report.comparisonSpreadsheet.name} (${report.comparisonSpreadsheet.id})`
+  );
+
   const toWord = (b: boolean) => (b ? "Yes" : "No");
+
+  console.log(`Backup already exists? ${toWord(report.backupAlreadyExists)}.`);
+  console.log(`Changes since last backup? ${toWord(report.backupNeeded)}.`);
+  console.log(`Backup forced? ${toWord(forceBackup)}.`);
+
   const changesBody =
     report.changes.length > 0
       ? `Changes detected:\n${report.changes.join("\n")}`
       : "Changes detected: None.";
-
-  console.log("Backup info:");
-  console.log(`Backup needed? ${toWord(report.backupNeeded)}.`);
-  console.log(`Backup already exists? ${toWord(report.backupAlreadyExists)}.`);
-  console.log(`Backup forced? ${toWord(forceBackup)}.`);
   console.log(changesBody);
 }
 
@@ -61,10 +77,14 @@ export function compileBackupReport_(
   backupsFolder: DriveFolder,
   spreadsheetNameToFind: string
 ): BackupReport {
+  const comparisonSpreadsheet = SpreadsheetApp.openById(
+    getIdNewestFile_(backupsFolder)
+  );
+
   const detectedChanges: string[] = [];
   const sheetPairs = pairUpSheets_(
     sourceSpreadsheet.getSheets(),
-    SpreadsheetApp.openById(getIdNewestFile_(backupsFolder)).getSheets()
+    comparisonSpreadsheet.getSheets()
   );
 
   for (const [sourceSheet, lastBackupSheet] of sheetPairs) {
@@ -88,8 +108,8 @@ export function compileBackupReport_(
     if (rowDiff !== 0) {
       detectedChanges.push(
         rowDiff > 0
-          ? `${rowDiff} rows added to sheet ${sourceName}`
-          : `${rowDiff * -1} rows deleted from sheet ${sourceName}`
+          ? `${rowDiff} row(s) added to sheet ${sourceName}`
+          : `${rowDiff * -1} row(s) deleted from sheet ${sourceName}`
       );
     }
 
@@ -101,8 +121,8 @@ export function compileBackupReport_(
       if (colDiff !== 0) {
         detectedChanges.push(
           colDiff > 0
-            ? `${colDiff} columns added to sheet ${sourceName}`
-            : `${colDiff * -1} columns deleted from sheet ${sourceName}`
+            ? `${colDiff} column(s) added to sheet ${sourceName}`
+            : `${colDiff * -1} column(s) deleted from sheet ${sourceName}`
         );
       }
 
@@ -112,21 +132,37 @@ export function compileBackupReport_(
 
         const valuesAreDifferent =
           sourceValue instanceof Date && backupValue instanceof Date
-            ? sourceValue.getTime() === backupValue.getTime()
-            : sourceValue === backupValue;
+            ? sourceValue.getTime() !== backupValue.getTime()
+            : sourceValue !== backupValue;
 
         if (valuesAreDifferent) {
-          detectedChanges.push(
-            `Values changes for row ${i + 1} in sheet ${sourceName}`
-          );
+          const row = i + 1;
+          const col = convertToColumnLetters_(j + 1);
 
-          break;
+          detectedChanges.push(
+            `Values changes for Row ${row}, Column ${col} in sheet ${sourceName}`
+          );
         }
       }
     }
   }
 
   return {
+    folder: {
+      name: backupsFolder.getName(),
+      id: backupsFolder.getId(),
+    },
+
+    sourceSpreadsheet: {
+      name: sourceSpreadsheet.getName(),
+      id: sourceSpreadsheet.getId(),
+    },
+
+    comparisonSpreadsheet: {
+      name: comparisonSpreadsheet.getName(),
+      id: comparisonSpreadsheet.getId(),
+    },
+
     backupNeeded: detectedChanges.length > 0,
     changes: detectedChanges,
     backupAlreadyExists: backupsFolder

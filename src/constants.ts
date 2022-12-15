@@ -15,3 +15,16 @@ export const BACKUP_FOLDER_ID = "1gny3Ry9unE1MuD587YAzcg8T53IrUZRY";
 /** Email address to send error messages to if things break */
 export const PERSONAL_EMAIL =
   "rhinocerocketman@gmail.com" satisfies GmailAddress;
+
+export const DISPLAY_MESSAGES = {
+  email: {
+    success: "[Offer letter tracker] Backup complete",
+    error: "[Offer letter tracker] Error when backing up offer tracker",
+  },
+
+  status: {
+    proceed: "Proceeding with back up.",
+    stop: "Not proceeding with back up. Exiting script.",
+    success: "Backup complete.",
+  },
+} as const satisfies Record<string, Record<string, string>>;

@@ -115,9 +115,14 @@ export function copySpreadsheet_(
   );
 
   const oldSheets = targetSpreadsheet.getSheets();
+  const copyOfMatcher = /^Copy of */i;
 
   for (const sourceSheet of sourceSpreadsheet.getSheets()) {
-    sourceSheet.copyTo(targetSpreadsheet);
+    const newSheet = sourceSheet.copyTo(targetSpreadsheet);
+
+    // Google adds "Copy of" even if the sheet is going to a different
+    // spreadsheet and there wouldn't be any name conflicts.
+    newSheet.setName(newSheet.getName().replace(copyOfMatcher, ""));
   }
 
   for (const sheet of oldSheets) {
@@ -158,4 +163,27 @@ export function getIdNewestFile_(folder: DriveFolder): string {
   }
 
   return newestFileRef.getId();
+}
+
+/**
+ * Converts a column number into the letter(s) used in a sheet.
+ */
+export function convertToColumnLetters_(column: number): string {
+  if (!Number.isInteger(column) || column < 1 || column >= 18278) {
+    throw new RangeError(`Column ${column} is not a valid integer.`);
+  }
+
+  const ASCII_A = 65;
+  const letterBuffer: string[] = [];
+
+  let remainder = column;
+  while (remainder > 0) {
+    const columnGroupValue = (remainder - 1) % 26;
+    remainder = (remainder - columnGroupValue - 1) / 26;
+
+    const newLetter = String.fromCharCode(columnGroupValue + ASCII_A);
+    letterBuffer.unshift(newLetter);
+  }
+
+  return letterBuffer.join("");
 }

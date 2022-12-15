@@ -1,6 +1,9 @@
 /**
  * @file Defines the top-level entry point functions for performing daily back-
  * ups of the offer tracker spreadsheet.
+ *
+ * NOTE: This file cannot have any export statements at all, or the build
+ * process will not work. GAS still doesn't support ES module syntax.
  */
 import { compileBackupReport_, logBackupInfo_ } from "./backup.js";
 
@@ -8,6 +11,7 @@ import {
   BACKUP_FOLDER_ID,
   TRACKER_SPREADSHEET_ID,
   PERSONAL_EMAIL,
+  DISPLAY_MESSAGES,
 } from "./constants.js";
 
 import {
@@ -50,29 +54,22 @@ function backupDailyContents(forceBackup = false): void {
     logBackupInfo_(backupReport, forceBackup);
 
     if (!forceBackup && backupReport.backupAlreadyExists) {
-      console.log("Not proceeding with back up. Exiting script.");
+      console.log(DISPLAY_MESSAGES.status.stop);
       return;
     }
 
+    console.log(DISPLAY_MESSAGES.status.proceed);
     copySpreadsheet_(sourceSpreadsheet, baseSpreadsheetName, backupsFolder);
-    console.log("Backup complete.");
+    console.log(DISPLAY_MESSAGES.status.success);
 
     const emailBody = `Changes detected:\n${backupReport.changes.join("\n")}`;
-    sendEmail_(
-      PERSONAL_EMAIL,
-      "[Offer letter tracker] Backup complete",
-      emailBody
-    );
+    sendEmail_(PERSONAL_EMAIL, DISPLAY_MESSAGES.email.success, emailBody);
   } catch (err: unknown) {
     const logValue = err instanceof Error ? err.stack : err;
     const emailBody =
       err instanceof Error ? err.stack : `Non-error value ${err} thrown`;
 
     console.error(logValue);
-    sendEmail_(
-      PERSONAL_EMAIL,
-      "[Offer letter tracker] Error when backing up offer tracker",
-      emailBody
-    );
+    sendEmail_(PERSONAL_EMAIL, DISPLAY_MESSAGES.email.error, emailBody);
   }
 }
