@@ -9,7 +9,7 @@ import {
   Sheet,
   Spreadsheet,
   getIdNewestFile_,
-} from "./gasHelpers";
+} from "./gasHelpers.js";
 
 /**
  * Compiles basic information about what has changed since the last backup.

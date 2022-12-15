@@ -1,10 +1,11 @@
 {
   "name": "offer-tracker-backup",
-  "version": "1.0.0",
+  "version": "0.8.0",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "rollup -c --bundleConfigAsCjs",
+    "push": "npm run build && clasp push"
   },
   "repository": {
     "type": "git",
@@ -18,8 +19,16 @@
   },
   "homepage": "https://github.com/Parkreiner/offer-tracker-backup#readme",
   "devDependencies": {
+    "@babel/core": "^7.20.5",
+    "@babel/plugin-transform-runtime": "^7.19.6",
+    "@babel/preset-env": "^7.20.2",
+    "@babel/preset-typescript": "^7.18.6",
     "@google/clasp": "^2.4.2",
+    "@rollup/plugin-babel": "^6.0.3",
+    "@rollup/plugin-node-resolve": "^15.0.1",
     "@types/google-apps-script": "^1.0.56",
+    "rollup": "^3.7.4",
+    "rollup-plugin-cleanup": "^3.2.1",
     "typescript": "^4.9.4"
   }
 }

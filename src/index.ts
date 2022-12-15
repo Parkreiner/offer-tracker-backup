@@ -2,13 +2,13 @@
  * @file Defines the top-level entry point functions for performing daily back-
  * ups of the offer tracker spreadsheet.
  */
-import { compileBackupReport_, logBackupInfo_ } from "./backup";
+import { compileBackupReport_, logBackupInfo_ } from "./backup.js";
 
 import {
   BACKUP_FOLDER_ID,
   TRACKER_SPREADSHEET_ID,
   PERSONAL_EMAIL,
-} from "./constants";
+} from "./constants.js";
 
 import {
   sendEmail_,
@@ -16,7 +16,7 @@ import {
   copySpreadsheet_,
   getSpreadsheetById_,
   getFolderById_,
-} from "./gasHelpers";
+} from "./gasHelpers.js";
 
 /**
  * For forcing a backup to happen, even if some part of the logic thinks
