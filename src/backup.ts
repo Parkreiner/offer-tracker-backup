@@ -5,7 +5,7 @@
 
 import {
   DriveFolder,
-  getValues,
+  getValues_,
   Sheet,
   Spreadsheet,
   getIdNewestFile_,
@@ -81,8 +81,8 @@ export function compileBackupReport_(
       continue;
     }
 
-    const sourceValues = getValues(sourceSheet.getDataRange());
-    const backupValues = getValues(lastBackupSheet.getDataRange());
+    const sourceValues = getValues_(sourceSheet.getDataRange());
+    const backupValues = getValues_(lastBackupSheet.getDataRange());
 
     const rowDiff = sourceValues.length - backupValues.length;
     if (rowDiff !== 0) {

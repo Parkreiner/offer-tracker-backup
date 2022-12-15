@@ -61,7 +61,7 @@ export function getSpreadsheetById_(spreadsheetId: string): Spreadsheet {
  * The default getValues method returns a 2-D array of any values. This
  * overrides that type information to use the CellValue type.
  */
-export function getValues(r: Range): CellValue[][] {
+export function getValues_(r: Range): CellValue[][] {
   return r.getValues();
 }
 
