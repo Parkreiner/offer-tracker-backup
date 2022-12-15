@@ -47,12 +47,12 @@ export function logBackupInfo_(
   forceBackup: boolean
 ): void {
   console.log("Backup info:");
-  console.log(`Backups folder: ${report.folder.name} (${report.folder.id})`);
+  console.log(`Backups folder: ${report.folder.name} (ID ${report.folder.id})`);
   console.log(
-    `Source spreadsheet: ${report.sourceSpreadsheet.name} (${report.sourceSpreadsheet.id})`
+    `Source spreadsheet: ${report.sourceSpreadsheet.name} (ID ${report.sourceSpreadsheet.id})`
   );
   console.log(
-    `Comparison spreadsheet: ${report.comparisonSpreadsheet.name} (${report.comparisonSpreadsheet.id})`
+    `Comparison spreadsheet: ${report.comparisonSpreadsheet.name} (ID ${report.comparisonSpreadsheet.id})`
   );
 
   const toWord = (b: boolean) => (b ? "Yes" : "No");
