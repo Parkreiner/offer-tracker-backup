@@ -138,3 +138,24 @@ export function getFormattedDateStamp_(): string {
 
   return `${date.getFullYear()}-${month}-${day}`;
 }
+
+/**
+ * Gets the ID of the most recent file in a folder.
+ * @throws {Error} If folder is completely empty.
+ */
+export function getIdNewestFile_(folder: DriveFolder): string {
+  const fileIterator = folder.getFiles();
+  if (!fileIterator.hasNext()) {
+    throw new Error(`Folder ${folder.getId()} is empty.`);
+  }
+
+  let newestFileRef = fileIterator.next();
+  while (fileIterator.hasNext()) {
+    const nextFileRef = fileIterator.next();
+    if (nextFileRef.getDateCreated() > newestFileRef.getDateCreated()) {
+      newestFileRef = nextFileRef;
+    }
+  }
+
+  return newestFileRef.getId();
+}

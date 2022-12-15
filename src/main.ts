@@ -39,11 +39,11 @@ function backupDailyContents(forceBackup = false): void {
     const sourceSpreadsheet = getSpreadsheetById_(TRACKER_SPREADSHEET_ID);
     const backupsFolder = getFolderById_(BACKUP_FOLDER_ID);
 
-    const baseName = `tracker_${getFormattedDateStamp_()}`;
+    const baseSpreadsheetName = `tracker_${getFormattedDateStamp_()}`;
     const backupReport = compileBackupReport_(
       sourceSpreadsheet,
       backupsFolder,
-      baseName
+      baseSpreadsheetName
     );
 
     logBackupInfo_(backupReport, forceBackup);
@@ -53,7 +53,7 @@ function backupDailyContents(forceBackup = false): void {
       return;
     }
 
-    copySpreadsheet_(sourceSpreadsheet, baseName, backupsFolder);
+    copySpreadsheet_(sourceSpreadsheet, baseSpreadsheetName, backupsFolder);
     console.log("Backup complete.");
 
     const emailBody = `Changes detected:\n${backupReport.changes.join("\n")}`;

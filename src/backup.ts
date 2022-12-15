@@ -1,12 +1,15 @@
 /**
- * @file Makes a back-up copy of the NY/ECRI offer tracker.
- *
- * This tool is here in the off chance that a malicious actor tries to delete
- * the entire contents of the spreadsheet, or that someone accidentally breaks
- * things.
+ * @file Defines domain-specific logic for backing up data from the Codesmith
+ * offer tracker spreadsheet.
  */
 
-import { DriveFolder, getValues, Sheet, Spreadsheet } from "./gasHelpers";
+import {
+  DriveFolder,
+  getValues,
+  Sheet,
+  Spreadsheet,
+  getIdNewestFile_,
+} from "./gasHelpers";
 
 /**
  * Compiles basic information about what has changed since the last backup.
@@ -37,7 +40,7 @@ export function logBackupInfo_(
   forceBackup: boolean
 ): void {
   const toWord = (b: boolean) => (b ? "Yes" : "No");
-  const changeContent =
+  const changesBody =
     report.changes.length > 0
       ? `Changes detected:\n${report.changes.join("\n")}`
       : "Changes detected: None.";
@@ -46,27 +49,7 @@ export function logBackupInfo_(
   console.log(`Backup needed? ${toWord(report.backupNeeded)}.`);
   console.log(`Backup already exists? ${toWord(report.backupAlreadyExists)}.`);
   console.log(`Backup forced? ${toWord(forceBackup)}.`);
-  console.log(changeContent);
-}
-
-/**
- * Gets the ID of the most recent file in a folder.
- */
-function getIdNewestFile_(folder: DriveFolder): string {
-  const fileIterator = folder.getFiles();
-  if (!fileIterator.hasNext()) {
-    throw new Error("Folder is empty.");
-  }
-
-  let newestFileRef = fileIterator.next();
-  while (fileIterator.hasNext()) {
-    const nextFileRef = fileIterator.next();
-    if (nextFileRef.getDateCreated() > newestFileRef.getDateCreated()) {
-      newestFileRef = nextFileRef;
-    }
-  }
-
-  return newestFileRef.getId();
+  console.log(changesBody);
 }
 
 /**
@@ -92,14 +75,12 @@ export function compileBackupReport_(
       continue;
     }
 
+    const sourceName = sourceSheet.getName();
     if (!lastBackupSheet) {
-      detectedChanges.push(
-        `Sheet ${sourceSheet.getName()} added since last backup`
-      );
+      detectedChanges.push(`Sheet ${sourceName} added since last backup`);
       continue;
     }
 
-    const sourceName = sourceSheet.getName();
     const sourceValues = getValues(sourceSheet.getDataRange());
     const backupValues = getValues(lastBackupSheet.getDataRange());
 
