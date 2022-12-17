@@ -53,11 +53,11 @@ export function formatBackupReport_(
     `Backups folder: "${report.folder.name}" (ID ${report.folder.id})`,
     `Source spreadsheet: "${report.sourceSpreadsheet.name}" (ID ${report.sourceSpreadsheet.id})`,
     `Comparison spreadsheet: "${report.comparisonSpreadsheet.name}" (ID ${report.comparisonSpreadsheet.id})`,
-    "\n",
+    "",
     `Backup already exists? ${toWord(report.backupAlreadyExists)}.`,
     `Changes since last backup? ${toWord(report.backupNeeded)}.`,
     `Backup forced ${toWord(backupForced)}.`,
-    "\n",
+    "",
     "Changes detected:",
     changeList,
   ].join("\n");
