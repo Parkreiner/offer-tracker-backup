@@ -46,23 +46,21 @@ export function formatBackupReport_(
   backupForced: boolean
 ): string {
   const toWord = (b: boolean) => (b ? "Yes" : "No");
-  const headerLines = [
+  const changeList = report.changes.map((l) => `- ${l}`).join("\n") || "None.";
+
+  return [
     "Backup info:",
-    `Backups folder: ${report.folder.name} (ID ${report.folder.id})`,
-    `Source spreadsheet: ${report.sourceSpreadsheet.name} (ID ${report.sourceSpreadsheet.id})`,
-    `Comparison spreadsheet: ${report.comparisonSpreadsheet.name} (ID ${report.comparisonSpreadsheet.id})`,
+    `Backups folder: "${report.folder.name}" (ID ${report.folder.id})`,
+    `Source spreadsheet: "${report.sourceSpreadsheet.name}" (ID ${report.sourceSpreadsheet.id})`,
+    `Comparison spreadsheet: "${report.comparisonSpreadsheet.name}" (ID ${report.comparisonSpreadsheet.id})`,
+    "\n",
     `Backup already exists? ${toWord(report.backupAlreadyExists)}.`,
     `Changes since last backup? ${toWord(report.backupNeeded)}.`,
     `Backup forced ${toWord(backupForced)}.`,
+    "\n",
+    "Changes detected:",
+    changeList,
   ].join("\n");
-
-  const formattedLines = report.changes.map((line) => `- ${line}`).join("\n");
-  const body =
-    formattedLines.length > 0
-      ? `Changes detected:\n${formattedLines}`
-      : "Changes detected:\nNone.";
-
-  return `${headerLines}\n\n${body}`;
 }
 
 /**
