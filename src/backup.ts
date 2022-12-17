@@ -41,33 +41,28 @@ type BackupReport = {
   changes: string[];
 };
 
-/**
- * Logs all relevant info about a backup operation.
- */
-export function logBackupInfo_(
+export function formatBackupReport_(
   report: BackupReport,
-  forceBackup: boolean
-): void {
-  console.log("Backup info:");
-  console.log(`Backups folder: ${report.folder.name} (ID ${report.folder.id})`);
-  console.log(
-    `Source spreadsheet: ${report.sourceSpreadsheet.name} (ID ${report.sourceSpreadsheet.id})`
-  );
-  console.log(
-    `Comparison spreadsheet: ${report.comparisonSpreadsheet.name} (ID ${report.comparisonSpreadsheet.id})`
-  );
-
+  backupForced: boolean
+): string {
   const toWord = (b: boolean) => (b ? "Yes" : "No");
+  const headerLines = [
+    "Backup info:",
+    `Backups folder: ${report.folder.name} (ID ${report.folder.id})`,
+    `Source spreadsheet: ${report.sourceSpreadsheet.name} (ID ${report.sourceSpreadsheet.id})`,
+    `Comparison spreadsheet: ${report.comparisonSpreadsheet.name} (ID ${report.comparisonSpreadsheet.id})`,
+    `Backup already exists? ${toWord(report.backupAlreadyExists)}.`,
+    `Changes since last backup? ${toWord(report.backupNeeded)}.`,
+    `Backup forced ${toWord(backupForced)}.`,
+  ].join("\n");
 
-  console.log(`Backup already exists? ${toWord(report.backupAlreadyExists)}.`);
-  console.log(`Changes since last backup? ${toWord(report.backupNeeded)}.`);
-  console.log(`Backup forced? ${toWord(forceBackup)}.`);
+  const formattedLines = report.changes.map((line) => `- ${line}`).join("\n");
+  const body =
+    formattedLines.length > 0
+      ? `Changes detected:\n${formattedLines}`
+      : "Changes detected:\nNone.";
 
-  const changesBody =
-    report.changes.length > 0
-      ? `Changes detected:\n${report.changes.join("\n")}`
-      : "Changes detected: None.";
-  console.log(changesBody);
+  return `${headerLines}\n\n${body}`;
 }
 
 /**
@@ -168,11 +163,16 @@ export function compileBackupReport_(
   };
 }
 
+/**
+ * Determines if two Google Sheet cell values are different.
+ */
 function areValuesDifferent(v1: CellValue, v2: CellValue): boolean {
   if (v1 instanceof Date && v2 instanceof Date) {
     return v1.getTime() !== v2.getTime();
   }
 
+  // Have to do duck-typing to determine whether a value is a CellImageBuilder;
+  // GAS doesn't give you direct access to the classes, so no instanceof
   const v1IsImage = typeof v1 === "object" && "getUrl" in v1;
   const v2IsImage = typeof v2 === "object" && "getUrl" in v2;
   if (v1IsImage && v2IsImage) {

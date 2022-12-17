@@ -5,7 +5,7 @@
  * NOTE: This file cannot have any export statements at all, or the build
  * process will not work. GAS still doesn't support ES module syntax.
  */
-import { compileBackupReport_, logBackupInfo_ } from "./backup.js";
+import { compileBackupReport_, formatBackupReport_ } from "./backup.js";
 
 import {
   BACKUP_FOLDER_ID,
@@ -51,7 +51,8 @@ function backupDailyContents(forceBackup = false): void {
       baseSpreadsheetName
     );
 
-    logBackupInfo_(backupReport, forceBackup);
+    const formattedReport = formatBackupReport_(backupReport, forceBackup);
+    console.log(formattedReport);
 
     if (!forceBackup && backupReport.backupAlreadyExists) {
       console.log(DISPLAY_MESSAGES.status.stop);
@@ -62,8 +63,7 @@ function backupDailyContents(forceBackup = false): void {
     copySpreadsheet_(sourceSpreadsheet, baseSpreadsheetName, backupsFolder);
     console.log(DISPLAY_MESSAGES.status.success);
 
-    const emailBody = `Changes detected:\n${backupReport.changes.join("\n")}`;
-    sendEmail_(PERSONAL_EMAIL, DISPLAY_MESSAGES.email.success, emailBody);
+    sendEmail_(PERSONAL_EMAIL, DISPLAY_MESSAGES.email.success, formattedReport);
   } catch (err: unknown) {
     const logValue = err instanceof Error ? err.stack : err;
     const emailBody =
