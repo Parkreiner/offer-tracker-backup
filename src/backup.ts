@@ -127,7 +127,7 @@ export function compileBackupReport_(
         const backupValue = backupRow[j];
         if (backupValue === undefined) break;
 
-        if (areValuesDifferent(sourceValue, backupValue)) {
+        if (areValuesDifferent_(sourceValue, backupValue)) {
           const row = i + 1;
           const col = convertToColumnLetters_(j + 1);
 
@@ -166,7 +166,7 @@ export function compileBackupReport_(
 /**
  * Determines if two Google Sheet cell values are different.
  */
-function areValuesDifferent(v1: CellValue, v2: CellValue): boolean {
+function areValuesDifferent_(v1: CellValue, v2: CellValue): boolean {
   if (v1 instanceof Date && v2 instanceof Date) {
     return v1.getTime() !== v2.getTime();
   }
