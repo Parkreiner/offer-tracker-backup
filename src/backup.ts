@@ -10,8 +10,10 @@ import {
   Spreadsheet,
   getIdNewestFile_,
   convertToColumnLetters_,
+  CellValue,
 } from "./gasHelpers.js";
 
+/** Indicates info about a folder/document in a BackupReport */
 type DriveResource = { name: string; id: string };
 
 /**
@@ -130,17 +132,12 @@ export function compileBackupReport_(
         const backupValue = backupRow[j];
         if (backupValue === undefined) break;
 
-        const valuesAreDifferent =
-          sourceValue instanceof Date && backupValue instanceof Date
-            ? sourceValue.getTime() !== backupValue.getTime()
-            : sourceValue !== backupValue;
-
-        if (valuesAreDifferent) {
+        if (areValuesDifferent(sourceValue, backupValue)) {
           const row = i + 1;
           const col = convertToColumnLetters_(j + 1);
 
           detectedChanges.push(
-            `Values changes for Row ${row}, Column ${col} in sheet ${sourceName}`
+            `Values changes for cell ${col}${row} in sheet ${sourceName}`
           );
         }
       }
@@ -169,6 +166,20 @@ export function compileBackupReport_(
       .getFilesByName(spreadsheetNameToFind)
       .hasNext(),
   };
+}
+
+function areValuesDifferent(v1: CellValue, v2: CellValue): boolean {
+  if (v1 instanceof Date && v2 instanceof Date) {
+    return v1.getTime() !== v2.getTime();
+  }
+
+  const v1IsImage = typeof v1 === "object" && "getUrl" in v1;
+  const v2IsImage = typeof v2 === "object" && "getUrl" in v2;
+  if (v1IsImage && v2IsImage) {
+    return v1.getUrl() !== v2.getUrl();
+  }
+
+  return v1 !== v2;
 }
 
 /**
