@@ -5,7 +5,10 @@
  * NOTE: This file cannot have any export statements at all, or the build
  * process will not work. GAS still doesn't support ES module syntax.
  */
-import { compileBackupReport_, formatBackupReport_ } from "./backup.js";
+import {
+  compileBackupReport_,
+  stringifyBackupReport_ as stringifyBackupReport_,
+} from "./backup.js";
 
 import {
   BACKUP_FOLDER_ID,
@@ -54,10 +57,14 @@ function backupDailyContents(
       baseSpreadsheetName
     );
 
-    const formattedReport = formatBackupReport_(backupReport, forceBackup);
-    console.log(formattedReport);
+    const formatted = stringifyBackupReport_(backupReport, forceBackup);
+    console.log(formatted);
 
-    if (!forceBackup && backupReport.backupAlreadyExists) {
+    const shouldContinue =
+      forceBackup ||
+      (backupReport.backupNeeded && !backupReport.backupAlreadyExists);
+
+    if (!shouldContinue) {
       console.log(DISPLAY_MESSAGES.status.stop);
       return;
     }
@@ -66,7 +73,7 @@ function backupDailyContents(
     copySpreadsheet_(sourceSpreadsheet, baseSpreadsheetName, backupsFolder);
     console.log(DISPLAY_MESSAGES.status.success);
 
-    sendEmail_(PERSONAL_EMAIL, DISPLAY_MESSAGES.email.success, formattedReport);
+    sendEmail_(PERSONAL_EMAIL, DISPLAY_MESSAGES.email.success, formatted);
   } catch (err: unknown) {
     const logValue = err instanceof Error ? err.stack : err;
     const emailBody =

@@ -41,7 +41,7 @@ type BackupReport = {
   changes: string[];
 };
 
-export function formatBackupReport_(
+export function stringifyBackupReport_(
   report: BackupReport,
   backupForced: boolean
 ): string {
@@ -50,9 +50,9 @@ export function formatBackupReport_(
 
   return [
     "Backup info:",
-    `Backups folder: "${report.folder.name}" (ID ${report.folder.id})`,
-    `Source spreadsheet: "${report.sourceSpreadsheet.name}" (ID ${report.sourceSpreadsheet.id})`,
-    `Comparison spreadsheet: "${report.comparisonSpreadsheet.name}" (ID ${report.comparisonSpreadsheet.id})`,
+    `- Backups folder: "${report.folder.name}" (ID ${report.folder.id})`,
+    `- Source spreadsheet: "${report.sourceSpreadsheet.name}" (ID ${report.sourceSpreadsheet.id})`,
+    `- Comparison spreadsheet: "${report.comparisonSpreadsheet.name}" (ID ${report.comparisonSpreadsheet.id})`,
     "",
     `Backup already exists? ${toWord(report.backupAlreadyExists)}.`,
     `Changes since last backup? ${toWord(report.backupNeeded)}.`,
