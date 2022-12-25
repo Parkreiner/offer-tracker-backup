@@ -45,7 +45,7 @@ export function formatBackupReport_(
   report: BackupReport,
   backupForced: boolean
 ): string {
-  const toWord = (b: boolean) => (b ? "Yes" : "No");
+  const toWord = (b: boolean) => (b === true ? "Yes" : "No");
   const changeList = report.changes.map((l) => `- ${l}`).join("\n") || "None.";
 
   return [
@@ -56,7 +56,7 @@ export function formatBackupReport_(
     "",
     `Backup already exists? ${toWord(report.backupAlreadyExists)}.`,
     `Changes since last backup? ${toWord(report.backupNeeded)}.`,
-    `Backup forced ${toWord(backupForced)}.`,
+    `Backup forced? ${toWord(backupForced)}.`,
     "",
     "Changes detected:",
     changeList,
@@ -130,7 +130,7 @@ export function compileBackupReport_(
           const col = convertToColumnLetters_(j + 1);
 
           detectedChanges.push(
-            `Values changes for cell ${col}${row} in sheet ${sourceName}`
+            `Values changed for cell ${col}${row} in sheet ${sourceName}`
           );
         }
       }

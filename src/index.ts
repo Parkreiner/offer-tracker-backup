@@ -32,14 +32,17 @@ import {
  */
 // @ts-expect-error
 function forceManualBackup(): void {
-  backupDailyContents(true);
+  backupDailyContents(null, true);
 }
 
 /**
  * Entrypoint for the script logic. Should be set up to run daily via an Apps
  * Script trigger.
  */
-function backupDailyContents(forceBackup = false): void {
+function backupDailyContents(
+  _triggerContext: unknown,
+  forceBackup = false
+): void {
   try {
     const sourceSpreadsheet = getSpreadsheetById_(TRACKER_SPREADSHEET_ID);
     const backupsFolder = getFolderById_(BACKUP_FOLDER_ID);
